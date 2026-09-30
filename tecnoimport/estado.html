@@ -312,6 +312,7 @@
       </div>
     </footer>
 
+    <script src="../catalogo.js"></script>
     <script>
       (function () {
         "use strict";
@@ -325,10 +326,9 @@
 
         var ESPERA_MS = MINUTOS_ESPERA * 60 * 1000;
 
-        /* Datos comerciales fijos de TecnoImport */
-        var PRECIO_UNITARIO = 168.0; /* USD por unidad */
-        var FLETE = 85.0; /* USD por el despacho completo, NO incluido */
-        var DIAS_ENTREGA = 6;
+        /* Los datos comerciales viven en ../catalogo.json, que comparten los
+           cinco portales y el repositorio del taller. Aqui no se repiten. */
+        var PROVEEDOR = "tecnoimport";
 
         function fmt(n) {
           var s = n.toFixed(2).split(".");
@@ -409,66 +409,145 @@
           return;
         }
 
-        /* --- cotización lista --- */
-        var subtotal = PRECIO_UNITARIO * cant;
-        var total = subtotal + FLETE;
-
+        /* --- cotización lista: la arma el catálogo --- */
         panel.innerHTML =
-          '<span class="estado-chip chip-lista">Cotización emitida</span>' +
-          "<h1>Cotización " +
-          esc(ref) +
-          "</h1>" +
-          '<p class="ref-linea">Emitida por TecnoImport S.A. · Válida por 15 días calendario.</p>' +
-          '<table class="cotizacion" id="tabla-cotizacion">' +
-          "<caption>Detalle de la cotización</caption>" +
-          "<thead><tr>" +
-          "<th>Descripción</th>" +
-          '<th class="num">Cantidad</th>' +
-          '<th class="num">Precio unitario (USD)</th>' +
-          '<th class="num">Importe (USD)</th>' +
-          "</tr></thead>" +
-          "<tbody>" +
-          "<tr>" +
-          "<td>" +
-          esc(prod) +
-          " — panel IPS, 75 Hz, HDMI/VGA</td>" +
-          '<td class="num">' +
-          cant +
-          "</td>" +
-          '<td class="num" id="precio-unitario">168,00</td>' +
-          '<td class="num">' +
-          fmt(subtotal) +
-          "</td>" +
-          "</tr>" +
-          "<tr>" +
-          "<td>Flete y despacho a bodega del cliente <em>(no incluido en el precio unitario)</em></td>" +
-          '<td class="num">1</td>' +
-          '<td class="num" id="flete">85,00</td>' +
-          '<td class="num">' +
-          fmt(FLETE) +
-          "</td>" +
-          "</tr>" +
-          "</tbody>" +
-          "<tfoot>" +
-          '<tr class="total">' +
-          '<td colspan="3">Total puesto en bodega del cliente</td>' +
-          '<td class="num" id="total">' +
-          fmt(total) +
-          "</td>" +
-          "</tr>" +
-          "</tfoot>" +
-          "</table>" +
-          '<p class="aviso-flete"><strong>Importante:</strong> el precio unitario de USD 168,00 <strong>no incluye flete</strong>. ' +
-          "El despacho completo a bodega del cliente se factura aparte por USD 85,00.</p>" +
-          '<dl class="condiciones">' +
-          '<dt>Plazo de entrega</dt><dd id="plazo-entrega">6 días hábiles desde la confirmación</dd>' +
-          "<dt>Flete</dt><dd>No incluido — USD 85,00 por el despacho completo</dd>" +
-          "<dt>Forma de pago</dt><dd>50 % anticipo, 50 % contra entrega</dd>" +
-          "<dt>Garantía</dt><dd>12 meses de fábrica</dd>" +
-          (mail ? "<dt>Correo de contacto</dt><dd>" + esc(mail) + "</dd>" : "") +
-          "<dt>Validez de la oferta</dt><dd>15 días calendario</dd>" +
-          "</dl>" +
-          bloqueUrl;
+          '<span class="estado-chip chip-proceso">Consultando catálogo…</span>' +
+          '<h1>Preparando la cotización</h1>';
+
+        Catalogo.cargar()
+          .then(function (catalogo) {
+            var r = Catalogo.cotizar(catalogo, PROVEEDOR, prod, cant);
+
+            /* No identificamos el producto: se pide una precisión. */
+            if (r.estado === "no-identificado") {
+              panel.innerHTML =
+                '<span class="estado-chip chip-error">Producto no identificado</span>' +
+                "<h1>Necesitamos una precisión</h1>" +
+                '<p class="ref-linea">Solicitud ' +
+                esc(ref) +
+                " · TecnoImport S.A.</p>" +
+                '<div class="aviso-espera"><p style="margin:0">No pudimos identificar <strong>' +
+                esc(prod) +
+                "</strong> en nuestra línea de productos. Indíquenos la descripción " +
+                "comercial del artículo y volvemos a cotizar.</p></div>" +
+                '<dl class="condiciones">' +
+                "<dt>Producto solicitado</dt><dd>" +
+                esc(prod) +
+                "</dd>" +
+                "<dt>Cantidad</dt><dd>" +
+                cant +
+                " unidades</dd>" +
+                "<dt>Estado</dt><dd>Sin cotización — producto no identificado</dd>" +
+                "</dl>" +
+                bloqueUrl;
+              return;
+            }
+
+            /* Lo identificamos y no lo manejamos: es un resultado, no un error. */
+            if (r.estado === "no-maneja") {
+              panel.innerHTML =
+                '<span class="estado-chip chip-error">Producto no disponible</span>' +
+                "<h1>No manejamos este producto</h1>" +
+                '<p class="ref-linea">Solicitud ' +
+                esc(ref) +
+                " · TecnoImport S.A.</p>" +
+                '<div class="aviso-espera"><p style="margin:0"><strong>' +
+                esc(r.producto.nombre) +
+                "</strong> no forma parte de nuestra línea. No emitimos cotización por " +
+                "este artículo.</p></div>" +
+                '<dl class="condiciones">' +
+                "<dt>Producto solicitado</dt><dd>" +
+                esc(r.producto.nombre) +
+                "</dd>" +
+                "<dt>Cantidad</dt><dd>" +
+                cant +
+                " unidades</dd>" +
+                "<dt>Estado</dt><dd>Sin cotización — fuera de nuestra línea</dd>" +
+                "</dl>" +
+                bloqueUrl;
+              return;
+            }
+
+            panel.innerHTML =
+              '<span class="estado-chip chip-lista">Cotización emitida</span>' +
+              "<h1>Cotización " +
+              esc(ref) +
+              "</h1>" +
+              '<p class="ref-linea">Emitida por TecnoImport S.A. · Válida por 15 días calendario.</p>' +
+              '<table class="cotizacion" id="tabla-cotizacion">' +
+              "<caption>Detalle de la cotización</caption>" +
+              "<thead><tr>" +
+              "<th>Descripción</th>" +
+              '<th class="num">Cantidad</th>' +
+              '<th class="num">Precio unitario (USD)</th>' +
+              '<th class="num">Importe (USD)</th>' +
+              "</tr></thead>" +
+              "<tbody>" +
+              "<tr>" +
+              "<td>" +
+              esc(r.producto.nombre) +
+              " — " +
+              esc(r.producto.especificacion) +
+              "</td>" +
+              '<td class="num">' +
+              cant +
+              "</td>" +
+              '<td class="num" id="precio-unitario">' +
+              fmt(r.unitarioUsd) +
+              "</td>" +
+              '<td class="num">' +
+              fmt(r.importeUsd) +
+              "</td>" +
+              "</tr>" +
+              "<tr>" +
+              "<td>Flete y despacho a bodega del cliente <em>(no incluido en el precio unitario)</em></td>" +
+              '<td class="num">1</td>' +
+              '<td class="num" id="flete">' +
+              fmt(r.fleteUsd) +
+              "</td>" +
+              '<td class="num">' +
+              fmt(r.fleteUsd) +
+              "</td>" +
+              "</tr>" +
+              "</tbody>" +
+              "<tfoot>" +
+              '<tr class="total">' +
+              '<td colspan="3">Total puesto en bodega del cliente</td>' +
+              '<td class="num" id="total">' +
+              fmt(r.totalUsd) +
+              "</td>" +
+              "</tr>" +
+              "</tfoot>" +
+              "</table>" +
+              '<p class="aviso-flete"><strong>Importante:</strong> el precio unitario de USD ' +
+              fmt(r.unitarioUsd) +
+              " <strong>no incluye flete</strong>. " +
+              "El despacho completo a bodega del cliente se factura aparte por USD " +
+              fmt(r.fleteUsd) +
+              ".</p>" +
+              '<dl class="condiciones">' +
+              '<dt>Plazo de entrega</dt><dd id="plazo-entrega">' +
+              Catalogo.plazoTexto(r.proveedor) +
+              " desde la confirmación</dd>" +
+              "<dt>Flete</dt><dd>No incluido — USD " +
+              fmt(r.fleteUsd) +
+              " por el despacho completo</dd>" +
+              "<dt>Forma de pago</dt><dd>50 % anticipo, 50 % contra entrega</dd>" +
+              "<dt>Garantía</dt><dd>12 meses de fábrica</dd>" +
+              (mail ? "<dt>Correo de contacto</dt><dd>" + esc(mail) + "</dd>" : "") +
+              "<dt>Validez de la oferta</dt><dd>15 días calendario</dd>" +
+              "</dl>" +
+              bloqueUrl;
+          })
+          .catch(function (error) {
+            panel.innerHTML =
+              '<span class="estado-chip chip-error">Catálogo no disponible</span>' +
+              "<h1>No pudimos consultar el catálogo</h1>" +
+              '<p class="ref-linea">' +
+              esc(error.message) +
+              " · Vuelva a cargar esta página.</p>" +
+              bloqueUrl;
+          });
       })();
     </script>
   </body>

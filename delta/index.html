@@ -169,7 +169,9 @@
           <h2 style="margin-top: 0">Datos del requerimiento</h2>
           <form id="form-cotizacion">
             <label for="producto">Producto requerido</label>
-            <input type="text" id="producto" name="producto" value='Monitor 24" Full HD' required />
+            <input type="text" id="producto" list="productos-catalogo" name="producto" value='Monitor 24" Full HD' required />
+            <datalist id="productos-catalogo"></datalist>
+            <p class="ayuda-catalogo" id="ayuda-catalogo" style="margin:6px 0 0;font-size:.85em;opacity:.75"></p>
 
             <label for="cantidad">Cantidad de unidades</label>
             <input type="number" id="cantidad" name="cantidad" min="1" value="40" required />
@@ -250,6 +252,42 @@
 
           window.location.href = destino;
         });
+      })();
+    </script>
+    <script src="../catalogo.js"></script>
+    <script>
+      /* Lo que este proveedor puede cotizar sale del catalogo, no de esta
+         pagina: asi el formulario no promete lo que la cotizacion niega. */
+      (function () {
+        "use strict";
+        var PROVEEDOR = "delta";
+        var lista = document.getElementById("productos-catalogo");
+        var ayuda = document.getElementById("ayuda-catalogo");
+        if (!lista || !ayuda) return;
+
+        Catalogo.cargar()
+          .then(function (catalogo) {
+            var proveedor = Catalogo.proveedorPorId(catalogo, PROVEEDOR);
+            var maneja = catalogo.productos.filter(function (p) {
+              return proveedor.precios[p.id] !== undefined;
+            });
+
+            lista.innerHTML = maneja
+              .map(function (p) {
+                return '<option value="' + p.nombre + '"></option>';
+              })
+              .join("");
+
+            ayuda.textContent =
+              proveedor.cotiza === false
+                ? "Las solicitudes se revisan en orden de llegada."
+                : maneja.length === 0
+                  ? "Consulte disponibilidad antes de solicitar."
+                  : "Cotizamos: " + maneja.map(function (p) { return p.nombre; }).join(" · ");
+          })
+          .catch(function () {
+            /* Sin catalogo el formulario sigue aceptando texto libre. */
+          });
       })();
     </script>
   </body>

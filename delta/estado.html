@@ -323,16 +323,16 @@
       </div>
     </footer>
 
+    <script src="../catalogo.js"></script>
     <script>
       (function () {
         "use strict";
 
         /* Datos comerciales fijos de Suministros Delta.
      El precio corresponde a la configuración SIN garantía extendida. */
-        var PRECIO_SIN_GARANTIA = 164.0; /* USD por unidad */
-        var PRECIO_CON_GARANTIA = 179.0; /* USD por unidad, con garantía extendida 24 meses */
-        var FLETE = 60.0; /* USD por el despacho completo, NO incluido */
-        var DIAS_ENTREGA = 9;
+        /* Los datos comerciales viven en ../catalogo.json, que comparten los
+           cinco portales y el repositorio del taller. Aqui no se repiten. */
+        var PROVEEDOR = "delta";
 
         function fmt(n) {
           var s = n.toFixed(2).split(".");
@@ -426,80 +426,134 @@
           return;
         }
 
-        /* --- cotización emitida --- */
-        var conGarantia = gar === "si";
-        var unitario = conGarantia ? PRECIO_CON_GARANTIA : PRECIO_SIN_GARANTIA;
-        var subtotal = unitario * cant;
-        var total = subtotal + FLETE;
-
+        /* --- cotización emitida: la arma el catálogo --- */
         panel.innerHTML =
-          '<span class="sello s-lista">Cotización emitida</span>' +
-          "<h1>Cotización " +
-          esc(ref) +
-          "</h1>" +
-          '<p class="ref">Emitida por Suministros Delta Cía. Ltda.' +
-          (empresa ? " · Cliente: " + esc(empresa) : "") +
-          "</p>" +
-          '<table class="detalle" id="tabla-cotizacion">' +
-          "<caption>Detalle de la cotización</caption>" +
-          "<thead><tr>" +
-          "<th>Descripción</th>" +
-          '<th class="num">Cantidad</th>' +
-          '<th class="num">Unitario (USD)</th>' +
-          '<th class="num">Importe (USD)</th>' +
-          "</tr></thead>" +
-          "<tbody>" +
-          "<tr>" +
-          "<td>" +
-          esc(prod) +
-          " — panel IPS, 75 Hz" +
-          (conGarantia ? " <em>(con garantía extendida 24 meses)</em>" : "") +
-          "</td>" +
-          '<td class="num">' +
-          cant +
-          "</td>" +
-          '<td class="num" id="precio-unitario">' +
-          fmt(unitario) +
-          "</td>" +
-          '<td class="num">' +
-          fmt(subtotal) +
-          "</td>" +
-          "</tr>" +
-          "<tr>" +
-          "<td>Flete y despacho a bodega <em>(no incluido en el unitario)</em></td>" +
-          '<td class="num">1</td>' +
-          '<td class="num" id="flete">' +
-          fmt(FLETE) +
-          "</td>" +
-          '<td class="num">' +
-          fmt(FLETE) +
-          "</td>" +
-          "</tr>" +
-          "</tbody>" +
-          "<tfoot>" +
-          '<tr class="total">' +
-          '<td colspan="3">Total puesto en bodega del cliente</td>' +
-          '<td class="num" id="total">' +
-          fmt(total) +
-          "</td>" +
-          "</tr>" +
-          "</tfoot>" +
-          "</table>" +
-          '<dl class="cond">' +
-          '<dt>Plazo de entrega</dt><dd id="plazo-entrega">' +
-          DIAS_ENTREGA +
-          " días hábiles desde la confirmación</dd>" +
-          "<dt>Flete</dt><dd>No incluido — USD " +
-          fmt(FLETE) +
-          " por el despacho completo</dd>" +
-          "<dt>Garantía</dt><dd>" +
-          (conGarantia ? "24 meses extendida" : "12 meses de fábrica") +
-          "</dd>" +
-          "<dt>Forma de pago</dt><dd>40 % anticipo, 60 % a 30 días</dd>" +
-          (mail ? "<dt>Contacto</dt><dd>" + esc(mail) + "</dd>" : "") +
-          "<dt>Validez de la oferta</dt><dd>21 días calendario</dd>" +
-          "</dl>" +
-          bloqueUrl;
+          '<span class="sello s-consulta">Consultando catálogo…</span>' +
+          "<h1>Preparando la cotización</h1>";
+
+        Catalogo.cargar()
+          .then(function (catalogo) {
+            var r = Catalogo.cotizar(catalogo, PROVEEDOR, prod, cant);
+
+            if (r.estado !== "cotiza") {
+              var identificado = r.estado === "no-maneja";
+              panel.innerHTML =
+                '<span class="sello s-error">Sin cotización</span>' +
+                "<h1>No podemos cotizar este artículo</h1>" +
+                '<p class="ref">Solicitud ' +
+                esc(ref) +
+                " · Suministros Delta Cía. Ltda." +
+                (empresa ? " · Cliente: " + esc(empresa) : "") +
+                "</p>" +
+                '<div class="mensaje">' +
+                (identificado
+                  ? "<strong>" +
+                    esc(r.producto.nombre) +
+                    "</strong> no está en nuestra línea de suministro. No emitimos cotización " +
+                    "por este artículo."
+                  : "No identificamos <strong>" +
+                    esc(prod) +
+                    "</strong> entre los artículos que suministramos. Envíenos la descripción " +
+                    "comercial y lo revisamos.") +
+                "</div>" +
+                '<dl class="cond">' +
+                "<dt>Producto solicitado</dt><dd>" +
+                esc(identificado ? r.producto.nombre : prod) +
+                "</dd>" +
+                "<dt>Cantidad</dt><dd>" +
+                cant +
+                " unidades</dd>" +
+                "<dt>Estado</dt><dd>Sin cotización</dd>" +
+                "</dl>" +
+                bloqueUrl;
+              return;
+            }
+
+            /* La garantía extendida solo existe donde el catálogo le pone precio. */
+            var conGarantia = gar === "si" && r.conGarantiaExtendidaUsd !== null;
+            var unitario = conGarantia ? r.conGarantiaExtendidaUsd : r.unitarioUsd;
+            var subtotal = unitario * cant;
+            var total = subtotal + r.fleteUsd;
+
+            panel.innerHTML =
+              '<span class="sello s-lista">Cotización emitida</span>' +
+              "<h1>Cotización " +
+              esc(ref) +
+              "</h1>" +
+              '<p class="ref">Emitida por Suministros Delta Cía. Ltda.' +
+              (empresa ? " · Cliente: " + esc(empresa) : "") +
+              "</p>" +
+              '<table class="detalle" id="tabla-cotizacion">' +
+              "<caption>Detalle de la cotización</caption>" +
+              "<thead><tr>" +
+              "<th>Descripción</th>" +
+              '<th class="num">Cantidad</th>' +
+              '<th class="num">Unitario (USD)</th>' +
+              '<th class="num">Importe (USD)</th>' +
+              "</tr></thead>" +
+              "<tbody>" +
+              "<tr>" +
+              "<td>" +
+              esc(r.producto.nombre) +
+              " — " +
+              esc(r.producto.especificacion) +
+              (conGarantia ? " <em>(con garantía extendida 24 meses)</em>" : "") +
+              "</td>" +
+              '<td class="num">' +
+              cant +
+              "</td>" +
+              '<td class="num" id="precio-unitario">' +
+              fmt(unitario) +
+              "</td>" +
+              '<td class="num">' +
+              fmt(subtotal) +
+              "</td>" +
+              "</tr>" +
+              "<tr>" +
+              "<td>Flete y despacho a bodega <em>(no incluido en el unitario)</em></td>" +
+              '<td class="num">1</td>' +
+              '<td class="num" id="flete">' +
+              fmt(r.fleteUsd) +
+              "</td>" +
+              '<td class="num">' +
+              fmt(r.fleteUsd) +
+              "</td>" +
+              "</tr>" +
+              "</tbody>" +
+              "<tfoot>" +
+              '<tr class="total">' +
+              '<td colspan="3">Total puesto en bodega del cliente</td>' +
+              '<td class="num" id="total">' +
+              fmt(total) +
+              "</td>" +
+              "</tr>" +
+              "</tfoot>" +
+              "</table>" +
+              '<dl class="cond">' +
+              '<dt>Plazo de entrega</dt><dd id="plazo-entrega">' +
+              Catalogo.plazoTexto(r.proveedor) +
+              " desde la confirmación</dd>" +
+              "<dt>Flete</dt><dd>No incluido — USD " +
+              fmt(r.fleteUsd) +
+              " por el despacho completo</dd>" +
+              "<dt>Garantía</dt><dd>" +
+              (conGarantia ? "24 meses extendida" : "12 meses de fábrica") +
+              "</dd>" +
+              "<dt>Forma de pago</dt><dd>40 % anticipo, 60 % a 30 días</dd>" +
+              (mail ? "<dt>Contacto</dt><dd>" + esc(mail) + "</dd>" : "") +
+              "<dt>Validez de la oferta</dt><dd>21 días calendario</dd>" +
+              "</dl>" +
+              bloqueUrl;
+          })
+          .catch(function (error) {
+            panel.innerHTML =
+              '<span class="sello s-error">Catálogo no disponible</span>' +
+              "<h1>No pudimos consultar el catálogo</h1>" +
+              '<p class="ref">' +
+              esc(error.message) +
+              " · Vuelva a cargar esta página.</p>" +
+              bloqueUrl;
+          });
       })();
     </script>
   </body>

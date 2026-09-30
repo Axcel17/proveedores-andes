@@ -461,11 +461,13 @@
                   <label for="producto">Producto requerido</label>
                   <input
                     type="text"
-                    id="producto"
+                    id="producto" list="productos-catalogo"
                     name="producto"
                     required
                     placeholder="Ej.: Monitor 24 pulgadas Full HD"
                   />
+              <datalist id="productos-catalogo"></datalist>
+              <p class="ayuda-catalogo" id="ayuda-catalogo" style="margin:6px 0 0;font-size:.85em;opacity:.75"></p>
                 </div>
 
                 <div class="campo">
@@ -637,6 +639,42 @@
 
           window.location.href = destino;
         });
+      })();
+    </script>
+    <script src="../catalogo.js"></script>
+    <script>
+      /* Lo que este proveedor puede cotizar sale del catalogo, no de esta
+         pagina: asi el formulario no promete lo que la cotizacion niega. */
+      (function () {
+        "use strict";
+        var PROVEEDOR = "mayoristazeta";
+        var lista = document.getElementById("productos-catalogo");
+        var ayuda = document.getElementById("ayuda-catalogo");
+        if (!lista || !ayuda) return;
+
+        Catalogo.cargar()
+          .then(function (catalogo) {
+            var proveedor = Catalogo.proveedorPorId(catalogo, PROVEEDOR);
+            var maneja = catalogo.productos.filter(function (p) {
+              return proveedor.precios[p.id] !== undefined;
+            });
+
+            lista.innerHTML = maneja
+              .map(function (p) {
+                return '<option value="' + p.nombre + '"></option>';
+              })
+              .join("");
+
+            ayuda.textContent =
+              proveedor.cotiza === false
+                ? "Las solicitudes se revisan en orden de llegada."
+                : maneja.length === 0
+                  ? "Consulte disponibilidad antes de solicitar."
+                  : "Cotizamos: " + maneja.map(function (p) { return p.nombre; }).join(" · ");
+          })
+          .catch(function () {
+            /* Sin catalogo el formulario sigue aceptando texto libre. */
+          });
       })();
     </script>
   </body>

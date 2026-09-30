@@ -314,6 +314,7 @@
       </div>
     </footer>
 
+    <script src="../catalogo.js"></script>
     <script>
       (function () {
         "use strict";
@@ -338,6 +339,7 @@
         var t = parseInt(q.get("t"), 10);
         var cant = parseInt(q.get("q"), 10);
         var prod = q.get("p") || 'Monitor 24" Full HD';
+        var PROVEEDOR = "mayoristazeta";
         var mail = q.get("e") || "";
         var empresa = q.get("emp") || "";
         var ruc = q.get("ruc") || "";
@@ -414,26 +416,74 @@
 
         /* --- cotización lista: SOLO el enlace al PDF, sin precios en la página --- */
         ficha.innerHTML =
-          '<div class="cabezal">' +
-          "<h1>Su cotización está lista</h1>" +
-          '<div class="ref">Referencia: <span id="referencia">' +
-          esc(ref) +
-          "</span></div>" +
-          "</div>" +
-          '<div class="cuerpo">' +
-          '<span class="marbete m-lista">Cotización emitida</span>' +
-          '<div class="bloque-descarga">' +
-          "<h2>Cotización en PDF</h2>" +
-          "<p>El detalle de precios, empaque, flete y plazo de entrega se encuentra en el archivo adjunto.<br>" +
-          "Mayorista Zeta no publica precios en la página web.</p>" +
-          '<a class="descargar" id="enlace-pdf" href="cotizacion.pdf" download="cotizacion.pdf">Descargar cotización (PDF)</a>' +
-          '<div class="archivo-nombre">cotizacion.pdf &middot; 1 página</div>' +
-          "</div>" +
-          '<div class="aviso">Ver cotización adjunta. Cualquier consulta sobre el documento, comuníquese al ' +
-          "+593 4 216 9930 citando el número de referencia.</div>" +
-          tablaDatos +
-          bloqueUrl +
-          "</div>";
+          '<div class="cabezal"><h1>Preparando su cotización</h1></div>' +
+          '<div class="cuerpo"><div class="aviso">Consultando catálogo…</div></div>';
+
+        Catalogo.cargar()
+          .then(function (catalogo) {
+            var r = Catalogo.cotizar(catalogo, PROVEEDOR, prod, cant);
+
+            /* El PDF adjunto describe un solo producto, así que lo que no está en
+               nuestro catálogo se responde sin cotización. */
+            if (r.estado !== "cotiza") {
+              var identificado = r.estado === "no-maneja";
+              ficha.innerHTML =
+                '<div class="cabezal">' +
+                "<h1>No podemos cotizar esta solicitud</h1>" +
+                '<div class="ref">Referencia: <span id="referencia">' +
+                esc(ref) +
+                "</span></div>" +
+                "</div>" +
+                '<div class="cuerpo">' +
+                '<span class="marbete m-error">Sin cotización</span>' +
+                '<div class="aviso">' +
+                (identificado
+                  ? "<strong>" +
+                    esc(r.producto.nombre) +
+                    "</strong> no forma parte de nuestra línea de distribución por volumen. " +
+                    "Distribuimos en caja cerrada y este artículo no está en nuestro catálogo."
+                  : "No identificamos <strong>" +
+                    esc(prod) +
+                    "</strong> en nuestro catálogo. Indíquenos la descripción comercial del " +
+                    "artículo y con gusto cotizamos.") +
+                "</div>" +
+                tablaDatos +
+                bloqueUrl +
+                "</div>";
+              return;
+            }
+
+            ficha.innerHTML =
+              '<div class="cabezal">' +
+              "<h1>Su cotización está lista</h1>" +
+              '<div class="ref">Referencia: <span id="referencia">' +
+              esc(ref) +
+              "</span></div>" +
+              "</div>" +
+              '<div class="cuerpo">' +
+              '<span class="marbete m-lista">Cotización emitida</span>' +
+              '<div class="bloque-descarga">' +
+              "<h2>Cotización en PDF</h2>" +
+              "<p>El detalle de precios, empaque, flete y plazo de entrega se encuentra en el archivo adjunto.<br>" +
+              "Mayorista Zeta no publica precios en la página web.</p>" +
+              '<a class="descargar" id="enlace-pdf" href="cotizacion.pdf" download="cotizacion.pdf">Descargar cotización (PDF)</a>' +
+              '<div class="archivo-nombre">cotizacion.pdf &middot; 1 página</div>' +
+              "</div>" +
+              '<div class="aviso">Ver cotización adjunta. Cualquier consulta sobre el documento, comuníquese al ' +
+              "+593 4 216 9930 citando el número de referencia.</div>" +
+              tablaDatos +
+              bloqueUrl +
+              "</div>";
+          })
+          .catch(function (error) {
+            ficha.innerHTML =
+              '<div class="cabezal"><h1>No pudimos consultar el catálogo</h1></div>' +
+              '<div class="cuerpo"><div class="aviso">' +
+              esc(error.message) +
+              " · Vuelva a cargar esta página.</div>" +
+              bloqueUrl +
+              "</div>";
+          });
       })();
     </script>
   </body>
