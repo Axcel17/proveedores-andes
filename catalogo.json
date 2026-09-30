@@ -89,7 +89,8 @@
           "unitarioUsd": 42.0,
           "conGarantiaExtendidaUsd": null
         }
-      }
+      },
+      "prefijoReferencia": "TI"
     },
     {
       "id": "mayoristazeta",
@@ -109,7 +110,8 @@
           "porCajaUsd": 1590.0
         }
       },
-      "nota": "Solo cotiza monitores. No publica precios en la pagina: adjunta cotizacion.pdf, que es un archivo fijo de este repositorio, y por eso su catalogo se limita al producto que ese PDF describe."
+      "nota": "Solo cotiza monitores. No publica precios en la pagina: adjunta cotizacion.pdf, que es un archivo fijo de este repositorio, y por eso su catalogo se limita al producto que ese PDF describe.",
+      "prefijoReferencia": "MZ"
     },
     {
       "id": "globalstock",
@@ -133,7 +135,8 @@
           "unitarioUsd": 38.0,
           "conGarantiaExtendidaUsd": null
         }
-      }
+      },
+      "prefijoReferencia": "GS"
     },
     {
       "id": "delta",
@@ -157,14 +160,16 @@
           "unitarioUsd": 185.0,
           "conGarantiaExtendidaUsd": null
         }
-      }
+      },
+      "prefijoReferencia": "SD"
     },
     {
       "id": "importandina",
       "nombre": "ImportAndina",
       "razonSocial": "IMPORTANDINA S.A.",
       "cotiza": false,
-      "precios": {}
+      "precios": {},
+      "prefijoReferencia": "IA"
     }
   ],
   "reglaDeResolucion": "Normalizar el texto pedido: minusculas, sin tildes, y todo lo que no sea letra o digito reducido a un espacio. Un producto coincide si alguno de sus sinonimos normalizado aparece como subcadena del texto normalizado. Si coinciden varios, gana el del sinonimo mas largo. Si no coincide ninguno, el producto no esta identificado.",
