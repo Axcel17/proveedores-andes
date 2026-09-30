@@ -57,6 +57,10 @@ automatizados de comparación de cotizaciones contra respuestas de formato desig
 python3 -m http.server 8000
 ```
 
+**Por HTTP, no con `file://`.** Las páginas de seguimiento leen `catalogo.json`, y un navegador
+bloquea esa lectura desde el origen de archivo: la cotización se quedaría en «Catálogo no
+disponible».
+
 ## Licencia
 
 MIT. Ver [`LICENSE`](LICENSE).
